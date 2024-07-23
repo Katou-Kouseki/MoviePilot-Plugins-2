@@ -37,7 +37,7 @@ class Transfer115(_PluginBase):
     # 加载顺序
     plugin_order = 19
     # 可使用的用户级别
-    auth_level = 1
+    auth_level = 3
 
     _enable = True
     _cron = '*/30 * * * *'
