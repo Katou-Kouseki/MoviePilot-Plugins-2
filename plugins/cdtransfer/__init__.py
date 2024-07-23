@@ -27,7 +27,7 @@ class CDTransfer(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/honue/MoviePilot-Plugins/main/icons/clouddrive.png"
     # 插件版本
-    plugin_version = "0.1.1"
+    plugin_version = "0.1.2"
     # 插件作者
     plugin_author = "honue"
     # 作者主页
@@ -140,9 +140,8 @@ class CDTransfer(_PluginBase):
             dest_path = file_path.replace(self._local_media_prefix_path, self._cd_media_prefix_path)
             # folder /115/emby/series/日韩剧/财阀X刑警 (2024)/Season 1/  file_name 财阀X刑警 - S01E12 - 第 12 集.mkv
             folder, file_name = os.path.split(dest_path)
-            folder = folder + '/'
             if not self._fs.exists(folder):
-                self._fs.mkdir(folder)
+                self._fs.makedirs(folder)
                 logger.info(f'创建文件夹 {folder}')
             self._fs.chdir(folder)
             # 将本地媒体库文件上传
