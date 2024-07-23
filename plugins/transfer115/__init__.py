@@ -22,7 +22,7 @@ lock = threading.Lock()
 
 class Transfer115(_PluginBase):
     # 插件名称
-    plugin_name = "转移115"
+    plugin_name = "115转移"
     # 插件描述
     plugin_desc = "将新入库的媒体文件，转移到115"
     # 插件图标
@@ -41,7 +41,7 @@ class Transfer115(_PluginBase):
     auth_level = 3
 
     _enable = True
-    _cron = '*/30 * * * *'
+    _cron = '30'
     _onlyonce = False
     # 115网盘媒体库路径前缀
     _p115_media_prefix_path = '/emby/'
