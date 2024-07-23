@@ -27,7 +27,7 @@ class CDTransfer(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/honue/MoviePilot-Plugins/main/icons/clouddrive.png"
     # 插件版本
-    plugin_version = "0.0.3"
+    plugin_version = "0.1"
     # 插件作者
     plugin_author = "honue"
     # 作者主页
@@ -57,7 +57,7 @@ class CDTransfer(_PluginBase):
 
     def init_plugin(self, config: dict = None):
         if config:
-            self._enable = config.get('enable', True)
+            self._enable = config.get('enable', False)
             self._cron = config.get('cron', '*/30 * * * *')
             self._onlyonce = config.get('onlyonce', False)
             self._server = config.get('server', '')
@@ -67,6 +67,10 @@ class CDTransfer(_PluginBase):
             self._local_media_prefix_path = config.get('local_media_prefix_path', '/downloads/link/')
 
         self.stop_service()
+
+        if not self._enable:
+            return
+
         if self._server and self._username and self._password:
             self._client = CloudDriveClient(origin=self._server, username=self._username, password=self._password)
             self._fs = CloudDriveFileSystem(self._client)
@@ -87,10 +91,11 @@ class CDTransfer(_PluginBase):
                 logger.error(f"定时任务配置错误：{str(err)}")
 
         if self._onlyonce:
-            logger.info(f"clouddrive转移，立即运行一次")
             self._scheduler.add_job(func=self.task, trigger='date',
                                     run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
                                     name="clouddrive转移")
+            logger.info(f"clouddrive转移，立即运行一次")
+
             self.update_config({
                 'enable': self._enable,
                 'cron': self._cron,
@@ -101,6 +106,11 @@ class CDTransfer(_PluginBase):
                 'cd_media_prefix_path': self._cd_media_prefix_path,
                 'local_media_prefix_path': self._local_media_prefix_path
             })
+
+        if self._scheduler.get_jobs():
+            # 启动服务
+            self._scheduler.print_jobs()
+            self._scheduler.start()
 
     @eventmanager.register(EventType.TransferComplete)
     def update_waiting_list(self, event: Event):
@@ -130,12 +140,12 @@ class CDTransfer(_PluginBase):
             dest_path = file_path.replace(self._local_media_prefix_path, self._cd_media_prefix_path)
             # folder /115/emby/series/日韩剧/财阀X刑警 (2024)/Season 1/  file_name 财阀X刑警 - S01E12 - 第 12 集.mkv
             folder, file_name = os.path.split(dest_path)
-            if not self.fs.exists(folder):
-                self.fs.mkdir(folder)
+            if not self._fs.exists(folder):
+                self._fs.mkdir(folder)
                 logger.info(f'创建文件夹 {folder}')
-            self.fs.chdir(folder)
+            self._fs.chdir(folder)
             # 将本地媒体库文件上传
-            self.fs.upload(file_name)
+            self._fs.upload(file_name)
             logger.info(f'成功上传 {file_name} 至 {dest_path}')
             return True
         except Exception as e:
