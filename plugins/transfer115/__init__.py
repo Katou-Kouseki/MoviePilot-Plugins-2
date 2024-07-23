@@ -11,9 +11,10 @@ from p115 import P115Client, P115FileSystem
 
 from app.core.config import settings
 from app.core.event import eventmanager, Event
+from app.db.subscribe_oper import SubscribeOper
 from app.log import logger
 from app.plugins import _PluginBase
-from app.schemas import TransferInfo
+from app.schemas import TransferInfo, MediaInfo
 from app.schemas.types import EventType
 
 lock = threading.Lock()
@@ -27,7 +28,7 @@ class Transfer115(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/honue/MoviePilot-Plugins/main/icons/clouddrive.png"
     # 插件版本
-    plugin_version = "0.0.2"
+    plugin_version = "0.0.3"
     # 插件作者
     plugin_author = "honue"
     # 作者主页
@@ -57,10 +58,12 @@ class Transfer115(_PluginBase):
 
     _scheduler = None
 
+    _subscribe_oper = SubscribeOper()
+
     def init_plugin(self, config: dict = None):
         if config:
             self._enable = config.get('enable', False)
-            self._cron = config.get('cron', '*/30 * * * *')
+            self._cron: int = int(config.get('cron', '20'))
             self._onlyonce = config.get('onlyonce', False)
             self._cookie = config.get('cookie', '')
             self._p115_media_prefix_path = config.get('p115_media_prefix_path', '/emby/')
@@ -120,6 +123,25 @@ class Transfer115(_PluginBase):
             waiting_process_list = waiting_process_list + transfer_info.file_list_new
             self.save_data('waiting_process_list', waiting_process_list)
         logger.info(f'新入库，加入待转移列表 {transfer_info.file_list_new}')
+
+        media_info: MediaInfo = event.event_data.get('mediainfo', {})
+        if media_info:
+            is_exist = self._subscribe_oper.exists(tmdbid=media_info.tmdb_id, doubanid=media_info.douban_id,
+                                                   season=media_info.season)
+            if is_exist:
+                logger.info(f'追更剧集,{self._cron}分钟后再上传...')
+                try:
+                    self._scheduler.add_job(func=self.task,
+                                            trigger=CronTrigger.from_crontab(self._cron),
+                                            name="转移115")
+                    logger.info(f'115转移,定时任务创建成功：{self._cron}')
+                except Exception as err:
+                    logger.error(f"定时任务配置错误：{str(err)}")
+            else:
+                logger.info(f'已完结剧集,立即上传...')
+                self._scheduler.add_job(func=self.task, trigger='date',
+                                        run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                        name="转移115")
 
     def task(self):
         with lock:
