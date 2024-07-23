@@ -54,7 +54,6 @@ class CDTransfer(_PluginBase):
     _fs = None
 
     _scheduler = None
-    _event = threading.Event()
 
     def init_plugin(self, config: dict = None):
         if config:
@@ -67,7 +66,7 @@ class CDTransfer(_PluginBase):
             self._cd_media_prefix_path = config.get('cd_media_prefix_path', '/115/emby/')
             self._local_media_prefix_path = config.get('local_media_prefix_path', '/downloads/link/')
 
-        self._enable = True
+        self.stop_service()
         if self._server and self._username and self._password:
             self._client = CloudDriveClient(origin=self._server, username=self._username, password=self._password)
             self._fs = CloudDriveFileSystem(self._client)
@@ -117,6 +116,7 @@ class CDTransfer(_PluginBase):
     def task(self):
         with lock:
             waiting_process_list = self.get_data('waiting_process_list') or []
+            logger.info(f'开始执行上传任务 {waiting_process_list}')
             process_list = waiting_process_list.copy()
             for file in waiting_process_list:
                 process_list.remove(file) if self._upload_file(file) else None
@@ -325,15 +325,13 @@ class CDTransfer(_PluginBase):
 
     def stop_service(self):
         """
-        停止服务
+        退出插件
         """
         try:
             if self._scheduler:
                 self._scheduler.remove_all_jobs()
                 if self._scheduler.running:
-                    self._event.set()
                     self._scheduler.shutdown()
-                    self._event.clear()
                 self._scheduler = None
         except Exception as e:
-            print(str(e))
+            logger.error("退出插件失败：%s" % str(e))
